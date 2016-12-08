@@ -4,17 +4,18 @@ from tmm_core import (inc_tmm, unpolarized_RT, ellips,
                        position_resolved, find_in_structure_with_inf)
 import numpy as np
 from numpy import pi, linspace, inf, array
+import math
 import matplotlib.pyplot as plt
 
 # "5 * degree" is 5 degrees expressed in radians
 # "1.2 / degree" is 1.2 radians expressed in degrees
 degree = pi/180
-DEBUG = True
+DEBUG = False
 
 def main():
-    lamb=linspace(400,800,num=20) #40
-    angles=linspace(0,37,19) #19
-    N = 1
+    lamb=linspace(400,800,num=100) #40
+    angles=linspace(-37,37,38) #19
+    N = 14
     
     #Load experimental spectra so they can be plotted together with simulation
     expdata = np.genfromtxt("adultaverage.txt",delimiter="\t")
@@ -24,23 +25,25 @@ def main():
     RNAmeans = np.zeros((N, lamb.size))
 
     for n in range(N):
+        print(n)
         #Function to read off the layers' positions and gray values from ImageJ profile.
         #Subtracts relative position values in the list to get absolute thickeness (in nm).
-        t_list,gray_list = loadGrayvalues("Plot Values "+str(n+1)+".xls")
-        n_list = generateNlist(gray_list,lamb)
-
+        t_list,gray_list = loadGrayvalues("Plot Values "+str(n+20-N)+".xls")
+        
+        
         #Adds top and bottom inf layers to d list
         t_lists = np.append(t_list, inf)
         d_lists = np.insert(t_lists, 0, inf)
-        correction = 0.055
+        correction = 0.05 #0.055
         d_list = d_lists*(1-correction)
 
+        n_list = generateNlist(d_list,gray_list,lamb)
         # C_list: same lenght as t_list. First and last value must be 'i'.
         a = ['c']*len(t_list)
         b = np.append(a, 'i')
         c_list = np.insert(b, 0, 'i')
 
-        RNAmeans[n,:] = reflectionsim(lamb, angles, n_list, d_list, c_list)
+        RNAmeans[n,:] = reflectionsim(lamb, angles, n_list, d_list, c_list, N)
 
         plt.figure(0)
         plt.plot(lamb,RNAmeans[n,:],'--')
@@ -56,25 +59,25 @@ def main():
 
 # Save simulation data in a text file made out of columns delimited by a space
     
-    np.savetxt("/users/Olimpia/Desktop/datafile1.txt", RNAmeans, delimiter=" ")
-
-    profile(n_list)
+    np.savetxt("/users/Olimpia/Desktop/Figures/Adult/RNAmeans.txt", RNAmeans, delimiter=" ")
+    
+    profile(n_list, N)
     plt.show()
     
 
-def profile(n_list):
+def profile(n_list, N): #at 600nm
     if not DEBUG:
         return
     position = np.genfromtxt("Plot Values 1.xls",delimiter="\t")
     position = position[:,0]
     pos = np.delete(position, 0)
     poss = np.delete(pos,1)
-    n_list_imaginary = n_list[1:-1].imag
+    n_list_imaginary = n_list[N/2, 1:-1].imag
 
     k = 0.002 #500nm
     plt.figure(1)
     #plt.plot(poss, n_list[1:-1].imag, 'red')
-    plt.plot(poss, n_list[1:-1], 'red')
+    plt.plot(poss, n_list[N/2, 1:-1], 'red')
     
     plt.xlabel('Distance (/nm)')
     plt.ylabel('Im{refractive index}')
@@ -103,66 +106,77 @@ def loadGrayvalues(FIN):
     return t_list,gray_list
 
 
-def generateNlist(gray_list,lamb):
+def generateNlist(d_list, gray_list,lamb):
     #Conversion from gray values to refractive index
     maximum = 67 #np.amax(gray_list) #71
     minimum = 40 #np.amin(gray_list) #40
+    
+    n_list = np.zeros((lamb.size, gray_list.size), dtype=np.complex_)
+    n1 = np.zeros((lamb.size, gray_list.size), dtype=np.complex_)
+    n2 = np.zeros((lamb.size, gray_list.size), dtype=np.complex_)
+    nmelanin = np.zeros((lamb.size, gray_list.size), dtype=np.complex_)
+    n_list_converted = np.zeros((lamb.size, gray_list.size), dtype=np.complex_)
+    
+    #for k in 1/lamb:
 
-    for k in 1/lamb:
-        #N1R600 = 1.55 +0j #Real part of n1 at 600nm 1.45
-        #N1I600 = 0 + 0.00j #Imaginary part of n1 at 600nm 0.03j
-        #BR1 = 88000 # B Coefficient in Cauchy's equation (real)#8800
-        #AR1 = N1R600 - BR1/(600**2) #Calculates Cauchy's A from given values of B and n at 600nm
-        #BI1 = 0 + 5188j #B coefficient in Cauchy's equation (imaginary)
-        #AI1 = N1I600 - BI1/(600**2) #Calculates Cauchy's A from given values of B and n at 600nm
+    BR1 = 8800
+    AR1 = 1.5145
 
-        BR1 = 9464.8
-        AR1 = 1.5145
+    BR2 = 23700 # B Coefficient in Cauchy's equation (real)
+    AR2 = 1.648 #Calculates Cauchy's A from given values of B and n at 600nm
+    BI2 = 270 #B coefficient in exponential equation(imaginary part) #210
+    AI2 = 0.56 #A coefficient in exponential equation (im part)#0.56 #3.0
 
-        BR2 = 23700 # B Coefficient in Cauchy's equation (real)
-        AR2 = 1.648 #Calculates Cauchy's A from given values of B and n at 600nm
-        BI2 = 210 #B coefficient in exponential equation(imaginary part) #270
-        AI2 = 3.0 #A coefficient in exponential equation (im part) #0.56
-
+    for i in range(len(lamb)):
+        k = 1/lamb[i]
         #n1 = AR1 + BR1*(k**2) + 0*1j+ AI1 + BI1*(k**2)
-        n1 = AR1 + BR1*(k**2)
-        nmelanin = AR2 + BR2*(k**2) + (AI2*np.exp(-1/(BI2*k)))*1j 
-        qpigm = 1
-        n2 = n1*(1-qpigm) + nmelanin*qpigm
-        
+        n1[i,:] = AR1 + BR1*(k**2)
+        nmelanin[i,:] = AR2 + BR2*(k**2) + (AI2*np.exp(-1/(BI2*k)))*1j 
+        qpigm = 0.79
+        n2[i,:] = n1[i,:]*(1-qpigm) + nmelanin[i,:]*qpigm
         conversion = (n2-n1)/(maximum-minimum)
-        n_list_converted = n2 - conversion*(gray_list-minimum)
+        
+        gray_list_trans=np.zeros((1, gray_list.size))
+        gray_list_trans[:, 0:] = gray_list[0:]
+        
+        for j in range(len(gray_list)):
+            n_list_converted[i,j] = n2[i,j] - conversion[i,j]*(gray_list_trans[0,j]-minimum)
         
         wavel=1/k
         n1i = n1.imag
         n2i = n2.imag
-        if DEBUG:
-            plt.figure(3)
-            plt.plot(wavel, n1, marker='o', ms = 10, alpha=1, color='b', label='Chitin layer')
-            plt.plot(wavel, n2, marker='o', ms = 10, alpha=1, color='k', label='Melanin layer')
-            plt.xlabel('Wavelength (/nm)')
-            plt.ylabel('Refractive index')
-            plt.title('Dispersion relations, imaginary part. Blue = Chitin layer. Black = Melanin layer')
+##        if DEBUG:
+##            plt.figure(3)
+##            plt.plot(wavel, n1, marker='o', ms = 10, alpha=1, color='b', label='Chitin layer')
+##            plt.plot(wavel, n2, marker='o', ms = 10, alpha=1, color='k', label='Melanin layer')
+##            plt.xlabel('Wavelength (/nm)')
+##            plt.ylabel('Refractive index')
+##            plt.title('Dispersion relations, imaginary part. Blue = Chitin layer. Black = Melanin layer')
+##
         
-    
-#Adds bottom infinite layer at the end of the n list (average of ns)
-    n_lists = np.append(n_list_converted, [n2])
-
+#Adds bottom infinite layer at the end of the n list (same as last n calculated)
+    n_last = []
+    n_last = n_list_converted[:, -1]
+    n_lists = np.column_stack((n_list_converted, n_last))
 #Adds air layer at the top of the n list
     air = 1.00029
-    n_list = np.insert(n_lists, 0, air)
+    n_air = np.full((lamb.size, 1), air)
+    n_list = np.insert(n_lists, 0, air, axis=1)
 
+    np.savetxt("/users/Olimpia/Desktop/Figures/Adult/n_listreal.txt", n_list.real, delimiter=" ")
+    np.savetxt("/users/Olimpia/Desktop/Figures/Adult/n_listimaginary.txt", n_list.imag, delimiter=" ")
+  
+    
     return n_list
     
-def reflectionsim(lamb, angles, n_list, d_list, c_list):
+def reflectionsim(lamb, angles, n_list, d_list, c_list, N):
 
     RNA = np.zeros((lamb.size,angles.size))
     
     for i in range(lamb.size):
-        print(lamb[i])
         for j in range(angles.size):
-            RNA[i,j] = inc_tmm('s',n_list, d_list, c_list, angles[j]*degree, lamb[i])['R']
-            RNA[i,j] += inc_tmm('p',n_list, d_list, c_list, angles[j]*degree, lamb[i])['R']
+            RNA[i,j] = inc_tmm('s',n_list[i,:], d_list, c_list, angles[j]*degree, lamb[i])['R']
+            RNA[i,j] += inc_tmm('p',n_list[i,:], d_list, c_list, angles[j]*degree, lamb[i])['R']
 	    #both polarisations, averaged 
     RNA = RNA/2
     RNAmean = np.mean(RNA, axis=1)

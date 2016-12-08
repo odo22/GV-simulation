@@ -56,16 +56,16 @@ def main():
 
 # Save simulation data in a text file made out of columns delimited by a space
     
-    np.savetxt("/users/Olimpia/Desktop/datafile1.txt", RNAmeans, delimiter=" ")
+    np.savetxt("/users/Olimpia/Desktop/adultMeanSpectra.txt", RNAmeans, delimiter=" ")
 
     profile(n_list)
     plt.show()
     
 
-def profile(n_list):
+def profile(n_list, N):
     if not DEBUG:
         return
-    position = np.genfromtxt("Plot Values 1.xls",delimiter="\t")
+    position = np.genfromtxt("Plot Values "+str(N)+".xls",delimiter="\t")
     position = position[:,0]
     pos = np.delete(position, 0)
     poss = np.delete(pos,1)
@@ -82,6 +82,8 @@ def profile(n_list):
                 #'Experimental data (purple)')
     #plt.axis([0, 2000, -0.10, 0.10])
     plt.axis([0, 2000, 1.0, 2.0])
+    np.savetxt("/users/Olimpia/Desktop/adultProfileReal.txt", n_list[1:-1], delimiter=" ")
+    np.savetxt("/users/Olimpia/Desktop/adultProfileImag.txt", n_list[1:-1].imag, delimiter=" ")
 
 def loadGrayvalues(FIN):
     t_list = []
@@ -143,8 +145,10 @@ def generateNlist(gray_list,lamb):
             plt.xlabel('Wavelength (/nm)')
             plt.ylabel('Refractive index')
             plt.title('Dispersion relations, imaginary part. Blue = Chitin layer. Black = Melanin layer')
-        
-    
+            np.savetxt("/users/Olimpia/Desktop/adultDispersionRealN1.txt", n1, delimiter=" ")
+            np.savetxt("/users/Olimpia/Desktop/adultDispersionImagN1.txt", n1i, n_list[1:-1].imag, delimiter=" ")
+            np.savetxt("/users/Olimpia/Desktop/adultDispersionRealN2.txt", n2, delimiter=" ")
+            np.savetxt("/users/Olimpia/Desktop/adultDispersionImagN2.txt", n2i, n_list[1:-1].imag, delimiter=" ")   
 #Adds bottom infinite layer at the end of the n list (average of ns)
     n_lists = np.append(n_list_converted, [n2])
 

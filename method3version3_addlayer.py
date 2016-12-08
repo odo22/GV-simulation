@@ -9,12 +9,12 @@ import matplotlib.pyplot as plt
 # "5 * degree" is 5 degrees expressed in radians
 # "1.2 / degree" is 1.2 radians expressed in degrees
 degree = pi/180
-DEBUG = True
+DEBUG = False
 
 def main():
-    lamb=linspace(400,800,num=20) #40
-    angles=linspace(0,37,19) #19
-    N = 1
+    lamb=linspace(400,800,num=21)
+    angles=linspace(0,37,19)
+    N = 20
     
     #Load experimental spectra so they can be plotted together with simulation
     expdata = np.genfromtxt("adultaverage.txt",delimiter="\t")
@@ -31,14 +31,16 @@ def main():
 
         #Adds top and bottom inf layers to d list
         t_lists = np.append(t_list, inf)
-        d_lists = np.insert(t_lists, 0, inf)
-        correction = 0.055
+        d_listss = np.insert(t_lists, 0, 21) #167.5
+        d_lists = np.insert(d_listss, 0, inf)
+        correction = 0.0
         d_list = d_lists*(1-correction)
 
         # C_list: same lenght as t_list. First and last value must be 'i'.
         a = ['c']*len(t_list)
         b = np.append(a, 'i')
-        c_list = np.insert(b, 0, 'i')
+        c_listt = np.insert(b, 0, 'c')
+        c_list = np.insert(c_listt, 0, 'i')
 
         RNAmeans[n,:] = reflectionsim(lamb, angles, n_list, d_list, c_list)
 
@@ -65,7 +67,7 @@ def main():
 def profile(n_list):
     if not DEBUG:
         return
-    position = np.genfromtxt("Plot Values 1.xls",delimiter="\t")
+    position = np.genfromtxt("Plot Values 20.xls",delimiter="\t")
     position = position[:,0]
     pos = np.delete(position, 0)
     poss = np.delete(pos,1)
@@ -121,8 +123,8 @@ def generateNlist(gray_list,lamb):
 
         BR2 = 23700 # B Coefficient in Cauchy's equation (real)
         AR2 = 1.648 #Calculates Cauchy's A from given values of B and n at 600nm
-        BI2 = 210 #B coefficient in exponential equation(imaginary part) #270
-        AI2 = 3.0 #A coefficient in exponential equation (im part) #0.56
+        BI2 = 270 #B coefficient in exponential equation(imaginary part) #270
+        AI2 = 0.56 #A coefficient in exponential equation (im part) #0.56
 
         #n1 = AR1 + BR1*(k**2) + 0*1j+ AI1 + BI1*(k**2)
         n1 = AR1 + BR1*(k**2)
@@ -149,8 +151,11 @@ def generateNlist(gray_list,lamb):
     n_lists = np.append(n_list_converted, [n2])
 
 #Adds air layer at the top of the n list
+
+    extralayer = 1.6
+    n_listt = np.insert(n_lists, 0, extralayer)
     air = 1.00029
-    n_list = np.insert(n_lists, 0, air)
+    n_list = np.insert(n_listt, 0, air)
 
     return n_list
     
